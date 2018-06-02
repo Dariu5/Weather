@@ -13,9 +13,49 @@ using SimpleWifi;
 using System.Net.Http;
 using Newtonsoft.Json;
 using System.IO;
+using System.Xml.Serialization;
 
 namespace Orai
 {
+
+    public class SaveLoad
+
+    {
+        public string Address { get; set; }
+        public Geo Coordinates { get; set; }
+
+
+    
+        public void Restore()
+        {
+            XmlSerializer x = new XmlSerializer(typeof(SaveLoad));
+            FileStream reader = new FileStream("settings.xml", FileMode.Open);
+            SaveLoad temp = (SaveLoad)x.Deserialize(reader);
+
+            this.Address = temp.Address;
+            this.Coordinates = temp.Coordinates;
+
+
+        }
+
+        
+
+        public void Save(string address, Geo geo)
+
+        {
+            this.Address = address;
+            this.Coordinates = geo;
+            XmlSerializer x = new XmlSerializer(typeof(SaveLoad));
+            TextWriter writer = new StreamWriter("settings.xml");
+            x.Serialize(writer, this);
+
+
+
+        }
+
+
+
+    }
 
 
     public partial class Form1 : Form
@@ -29,6 +69,13 @@ namespace Orai
             StreamReader reader = new StreamReader("gkey.txt");
 
             Google_API_Key = reader.ReadLine();
+
+            SaveLoad restore = new SaveLoad();
+
+            restore.Restore();
+
+            UpdateLocationTextbox(restore.Coordinates, restore.Address);
+
         }
        
 
@@ -39,16 +86,24 @@ namespace Orai
 
             Geo coordinates = JsonConvert.DeserializeObject<Geo>(response);
 
-            var coordinates_string = coordinates.Location.Lat.ToString().Replace(',','.') + ", " + coordinates.Location.Lng.ToString().Replace(',', '.');
-
-
             response = await GetCity(coordinates);
 
+            Adresas adresai = JsonConvert.DeserializeObject<Adresas>(response);
 
-            Adresas adresas = JsonConvert.DeserializeObject<Adresas>(response);
+            string adresas = adresai.Results[1].FormattedAddress.ToString();
+            UpdateLocationTextbox(coordinates, adresas);
 
-            textBox1.Text = adresas.Results[1].FormattedAddress.ToString() + " (" + coordinates_string + ")";
+            SaveLoad save = new SaveLoad();
 
+            save.Save(adresas, coordinates);
+
+
+        }
+
+        private void UpdateLocationTextbox(Geo coordinates, string adresas)
+        {
+            var coordinates_string = coordinates.Location.Lat.ToString().Replace(',', '.') + ", " + coordinates.Location.Lng.ToString().Replace(',', '.');
+            textBox1.Text = adresas + " (" + coordinates_string + ")";
         }
 
         private static async Task<string> GetGeoData()
@@ -79,6 +134,11 @@ namespace Orai
             string content = await response.Content.ReadAsStringAsync();
 
             return content;
+        }
+
+        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://darksky.net/poweredby/");
         }
     }
 }
